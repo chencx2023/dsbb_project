@@ -15,9 +15,11 @@ public class CostFunctionMatrix {
     private double[][] laplacian;
 
     // 调整以下权重可以改变边缘检测的敏感度
-    private static final double LAPLACIAN_WEIGHT = 0.43;
-    private static final double GRADIENT_MAG_WEIGHT = 0.43;
-    private static final double GRADIENT_DIR_WEIGHT = 0.14;
+    // 提高梯度幅值的权重以增强边缘敏感度
+    private static final double LAPLACIAN_WEIGHT = 0.3;
+    private static final double GRADIENT_MAG_WEIGHT = 0.6;
+    private static final double GRADIENT_DIR_WEIGHT = 0.1;
+
 
     public CostFunctionMatrix(BufferedImage image) {
         this.image = image;
@@ -71,29 +73,32 @@ public class CostFunctionMatrix {
     }
 
     // 计算x和y方向的梯度
+    // 梯度计算优化（减少重复访问像素）
     private void computeGradients() {
         for (int y = 1; y < height - 1; y++) {
             for (int x = 1; x < width - 1; x++) {
-
-                // 获取周围 3x3 的像素灰度值
-                double a = rgbToGray(getPixelValue(x - 1, y - 1));
-                double b = rgbToGray(getPixelValue(x,     y - 1));
-                double c = rgbToGray(getPixelValue(x + 1, y - 1));
-                double d = rgbToGray(getPixelValue(x - 1, y));
-                double e = rgbToGray(getPixelValue(x,     y));
-                double f = rgbToGray(getPixelValue(x + 1, y));
-                double g = rgbToGray(getPixelValue(x - 1, y + 1));
-                double h = rgbToGray(getPixelValue(x,     y + 1));
-                double i = rgbToGray(getPixelValue(x + 1, y + 1));
-
-                // Sobel 卷积计算
-                double gx = -a + c - 2*d + 2*f - g + i;
-                double gy = -a - 2*b - c + g + 2*h + i;
-
+                // 预加载3x3区域灰度值
+                double[][] gray = new double[3][3];
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        gray[dy+1][dx+1] = rgbToGray(getPixelValue(x+dx, y+dy));
+                    }
+                }
+                // Sobel计算优化
+                double gx = -gray[0][0] + gray[0][2] - 2*gray[1][0] + 2*gray[1][2] - gray[2][0] + gray[2][2];
+                double gy = -gray[0][0] - 2*gray[0][1] - gray[0][2] + gray[2][0] + 2*gray[2][1] + gray[2][2];
                 gradientX[y][x] = gx;
                 gradientY[y][x] = gy;
             }
         }
+    }
+
+    // 新增方法：获取梯度幅值
+    public double getGradientMagnitude(int y, int x) {
+        if (x < 0 || y < 0 || x >= width || y >= height) {
+            return 0.0;
+        }
+        return gradientMagnitude[y][x];
     }
 
 
